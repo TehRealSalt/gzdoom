@@ -398,6 +398,8 @@ bool FShader::Load(const char * name, const char * vert_prog_lump, const char * 
 	fp_comb << RemoveLayoutLocationDecl(fp_data.GetString(), "in").GetChars() << "\n";
 	FString placeholder = "\n";
 
+	bool materialLightOverride = false;
+
 	if (proc_prog_lump != NULL)
 	{
 		fp_comb << "#line 1\n";
@@ -461,6 +463,12 @@ bool FShader::Load(const char * name, const char * vert_prog_lump, const char * 
 				// This reactivates the old logic and disables all features that cannot be supported with that method.
 				placeholder << "#define LEGACY_USER_SHADER\n";
 			}
+
+			// If the user shader contains its own ProcessMaterialLight, then we don't want to load light_fragprog.
+			if (pp_data.GetString().IndexOf("ProcessMaterialLight") >= 0)
+			{
+				materialLightOverride = true;
+			}
 		}
 		else
 		{
@@ -470,7 +478,7 @@ bool FShader::Load(const char * name, const char * vert_prog_lump, const char * 
 	}
 	fp_comb.Substitute("$placeholder$", placeholder);
 
-	if (light_fragprog)
+	if (light_fragprog && materialLightOverride == false)
 	{
 		int pp_lump = fileSystem.CheckNumForFullName(light_fragprog, 0);
 		if (pp_lump == -1) I_Error("Unable to load '%s'", light_fragprog);
