@@ -695,7 +695,7 @@ void HWSprite::Process(HWDrawInfo *di, AActor* thing, sector_t * sector, area_t 
 		return;
 	}
 
-    const auto &vp = di->Viewpoint;
+	const auto &vp = di->Viewpoint;
 	AActor *camera = vp.camera;
 
 	if (thing->renderflags & RF_INVISIBLE || !thing->RenderStyle.IsVisible(thing->Alpha))
@@ -721,13 +721,23 @@ void HWSprite::Process(HWDrawInfo *di, AActor* thing, sector_t * sector, area_t 
 	DVector3 thingpos = thing->InterpolatedPosition(vp.TicFrac);
 	if (thruportal == 1) thingpos += di->Level->Displacements.getOffset(thing->Sector->PortalGroup, sector->PortalGroup);
 
-	// Some added checks if the camera actor is not supposed to be seen. It can happen that some portal setup has this actor in view in which case it may not be skipped here
-	if (thing == camera && !vp.showviewer)
+	if (!vp.showviewer)
 	{
-		DVector3 thingorigin = thing->Pos();
-		if (thruportal == 1) thingorigin += di->Level->Displacements.getOffset(thing->Sector->PortalGroup, sector->PortalGroup);
-		if (fabs(thingorigin.X - vp.ActorPos.X) < 2 && fabs(thingorigin.Y - vp.ActorPos.Y) < 2) return;
+		// Some added checks if the camera actor is not supposed to be seen. It can happen that some portal setup has this actor in view in which case it may not be skipped here
+		if (thing == camera)
+		{
+			DVector3 thingorigin = thing->Pos();
+			if (thruportal == 1) thingorigin += di->Level->Displacements.getOffset(thing->Sector->PortalGroup, sector->PortalGroup);
+			if (fabs(thingorigin.X - vp.ActorPos.X) < 2 && fabs(thingorigin.Y - vp.ActorPos.Y) < 2) return;
+		}
+
+		// PARTOFCAMERA means that this thing is "part of" another camera object, so it should never display in first person view (but should in mirrors).
+		if ((thing->flags8 & MF8_PARTOFCAMERA) && thing->master != nullptr && thing->master == camera)
+		{
+			return;
+		}
 	}
+
 	// Thing is invisible if close to the camera.
 	if (thing->renderflags & RF_MAYBEINVISIBLE)
 	{
