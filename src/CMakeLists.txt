@@ -27,7 +27,7 @@ if( APPLE )
     option( OSX_COCOA_BACKEND "Use native Cocoa backend instead of SDL" ON )
 endif()
 
-option( ZDOOM_ENABLE_SWR "Enable software renderer" ON )
+option( ZDOOM_ENABLE_SWR "Enable software renderer" OFF )
 if( NOT ZDOOM_ENABLE_SWR )
 	add_definitions( -DNO_SWRENDERER )
 endif()
@@ -539,7 +539,7 @@ add_custom_command( OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/sc_man_scanner.h
 
 include_directories( ${CMAKE_CURRENT_BINARY_DIR} )
 
-option( SEND_ANON_STATS "Enable sending of anonymous hardware statistics" ON )
+option( SEND_ANON_STATS "Enable sending of anonymous hardware statistics" OFF )
 
 if( NOT SEND_ANON_STATS )
 	add_definitions( -DNO_SEND_STATS )
