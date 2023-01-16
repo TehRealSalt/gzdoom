@@ -27,7 +27,7 @@ vec3 lightContribution(int i, vec3 normal)
 	if (attenuation > 0.0) // Skip shadow map test if possible
 	{
 		attenuation *= shadowAttenuation(lightpos, lightcolor.a);
-		return lightcolor.rgb * attenuation;
+		return lightcolor.rgb * SnapCelLightAttenuation(attenuation);
 	}
 	else
 	{
@@ -59,21 +59,8 @@ vec3 ProcessMaterialLight(Material material, vec3 color)
 		}
 	}
 
-	vec3 frag;
-
-	if ( uLightBlendMode == 1 )
-	{	// COLOR_CORRECT_CLAMPING 
-		vec3 lightcolor = color + desaturate(dynlight).rgb;
-		frag = material.Base.rgb * ((lightcolor / max(max(max(lightcolor.r, lightcolor.g), lightcolor.b), 1.4) * 1.4));
-	}
-	else if ( uLightBlendMode == 2 )
-	{	// UNCLAMPED 
-		frag = material.Base.rgb * (color + desaturate(dynlight).rgb);
-	}
-	else
-	{
-		frag = material.Base.rgb * clamp(color + desaturate(dynlight).rgb, 0.0, 1.4);
-	}
+	vec3 frag = SnapApplyLight(material.Base.rgb, color);
+	frag = SnapApplyDynamicLight(frag, desaturate(dynlight).rgb);
 
 	if (uLightIndex >= 0)
 	{
@@ -88,7 +75,7 @@ vec3 ProcessMaterialLight(Material material, vec3 color)
 				addlight.rgb += lightContribution(i, normal);
 			}
 
-			frag = clamp(frag + desaturate(addlight).rgb, 0.0, 1.0);
+			frag = SnapApplyDynamicLight(frag, desaturate(addlight).rgb);
 		}
 	}
 

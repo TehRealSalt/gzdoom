@@ -108,7 +108,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 				{
 					attenuation *= shadowAttenuation(lightpos, lightcolor.a);
 
-					vec3 radiance = lightcolor.rgb * attenuation;
+					vec3 radiance = lightcolor.rgb * SnapCelLightAttenuation(attenuation);
 
 					// cook-torrance brdf
 					float NDF = DistributionGGX(N, H, roughness);
@@ -148,7 +148,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 				{
 					attenuation *= shadowAttenuation(lightpos, lightcolor.a);
 
-					vec3 radiance = lightcolor.rgb * attenuation;
+					vec3 radiance = lightcolor.rgb * SnapCelLightAttenuation(attenuation);
 
 					// cook-torrance brdf
 					float NDF = DistributionGGX(N, H, roughness);
@@ -176,7 +176,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 	vec3 kD = 1.0 - kS;
 
 	vec3 irradiance = ambientLight; // texture(irradianceMap, N).rgb
-	vec3 diffuse = irradiance * albedo;
+	vec3 diffuse = SnapApplyLight(albedo, irradiance);
 
 	//kD *= 1.0 - metallic;
 	//const float MAX_REFLECTION_LOD = 4.0;
@@ -187,7 +187,7 @@ vec3 ProcessMaterialLight(Material material, vec3 ambientLight)
 	//vec3 ambient = (kD * diffuse + specular) * ao;
 	vec3 ambient = (kD * diffuse) * ao;
 
-	vec3 color = max(ambient + Lo, vec3(0.0));
+	vec3 color = max(SnapApplyDynamicLight(ambient, Lo), vec3(0.0));
 
 	// Tonemap (reinhard) and apply sRGB gamma
 	//color = color / (color + vec3(1.0));
