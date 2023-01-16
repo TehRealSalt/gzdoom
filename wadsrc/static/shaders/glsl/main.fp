@@ -119,8 +119,10 @@ vec3 SnapApplyDynamicLight(vec3 BaseColor, vec3 LightColor)
 
 #define SNAP_GLOW_STRENGTH_BASE (0.5)
 #define SNAP_GLOW_STRENGTH_MUL (1.0)
+#define SNAP_GLOW_STEPS (8)
 vec3 SnapApplyGlow(vec3 BaseColor, vec3 GlowColor, float Strength)
 {
+	Strength = (ceil(Strength * SNAP_GLOW_STEPS) - 0.5) / SNAP_GLOW_STEPS;
 	Strength *= (SnapDarkest(GlowColor) + SnapSaturation(GlowColor)) * SNAP_DYN_LIGHT_FACTOR;
 	Strength *= SNAP_GLOW_STRENGTH_BASE + ((1.0 - SnapDarkest(BaseColor)) * SNAP_GLOW_STRENGTH_MUL);
 	return clamp(BaseColor + (GlowColor * Strength), 0.0, 1.0); // SNAP_DYN_LIGHT_MAX
