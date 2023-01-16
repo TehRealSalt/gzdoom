@@ -50,6 +50,86 @@ const int TEXF_ClampY = 0x80000;
 
 //===========================================================================
 //
+// Snap the Sentinel light functions
+//
+//===========================================================================
+
+float SnapBrightest(vec3 base)
+{
+	return max(max(base.g, base.b), base.r);
+}
+
+float SnapDarkest(vec3 base)
+{
+	return min(min(base.g, base.b), base.r);
+}
+
+float SnapSaturation(vec3 base)
+{
+	return SnapBrightest(base) - SnapDarkest(base);
+}
+
+float SnapLuminosity(vec3 base)
+{
+	return sqrt((base.r * base.r) + (base.g * base.g) + (base.b * base.b));
+}
+
+vec3 SnapLightMix(vec3 BaseColor, vec3 FogColor, float FogStrength)
+{
+	vec3 Diff = abs(BaseColor - FogColor);
+	float Intensity = SnapBrightest(BaseColor) * FogStrength;
+
+	vec3 ChannelMix = ((vec3(0.0, 0.288, -0.185)) * 0.35) + 0.5;
+
+	vec3 delta = vec3(-0.25);
+	vec3 aNum = ChannelMix - vec3(0.5);
+	vec3 bNum = vec3(0.25) - ChannelMix;
+	vec3 a = aNum / delta;
+	vec3 b = bNum / delta;
+
+	vec3 MixAmt = (a * (Intensity * Intensity)) + (b * Intensity);
+
+	return clamp(
+		BaseColor - (min(MixAmt, Diff) * sign(BaseColor - FogColor)),
+		0.0, 1.0
+	);
+}
+
+vec3 SnapApplyLight(vec3 BaseTextureColor, vec3 LightColor)
+{
+	float Darkness = 1.0 - SnapDarkest(LightColor.rgb);
+	vec3 FadeTo = LightColor.rgb * SnapSaturation(LightColor.rgb);
+	return SnapLightMix(BaseTextureColor.rgb, FadeTo, Darkness);
+}
+
+#define SNAP_CEL_LIGHT_STEPS (3)
+float SnapCelLightAttenuation(float Atten)
+{
+	return clamp(ceil(Atten * SNAP_CEL_LIGHT_STEPS) * 0.5, 0.0, 1.0);
+}
+
+#define SNAP_DYN_LIGHT_FACTOR (0.5)
+#define SNAP_DYN_LIGHT_MAX (1.4)
+vec3 SnapApplyDynamicLight(vec3 BaseColor, vec3 LightColor)
+{
+	float Strength = (SnapDarkest(LightColor) + SnapSaturation(LightColor)) * SNAP_DYN_LIGHT_FACTOR;
+	vec3 RawColor = LightColor * (1.0 / max(0.001, SnapBrightest(LightColor)));
+	return clamp(BaseColor + (RawColor * Strength * sign(LightColor)), 0.0, SNAP_DYN_LIGHT_MAX);
+}
+
+#define SNAP_GLOW_STRENGTH_BASE (0.5)
+#define SNAP_GLOW_STRENGTH_MUL (1.0)
+#define SNAP_GLOW_STEPS (8)
+vec3 SnapApplyGlow(vec3 BaseColor, vec3 GlowColor, float Strength)
+{
+	Strength = (ceil(Strength * SNAP_GLOW_STEPS) - 0.5) / SNAP_GLOW_STEPS;
+	Strength *= (SnapDarkest(GlowColor) + SnapSaturation(GlowColor)) * SNAP_DYN_LIGHT_FACTOR;
+	Strength *= SNAP_GLOW_STRENGTH_BASE + ((1.0 - SnapDarkest(BaseColor)) * SNAP_GLOW_STRENGTH_MUL);
+	return clamp(BaseColor + (GlowColor * Strength), 0.0, 1.0); // SNAP_DYN_LIGHT_MAX
+}
+
+//===========================================================================
+//
 // RGB to HSV
 //
 //===========================================================================
@@ -119,7 +199,7 @@ const int Tex_Blend_Hardlight = 4;
 
  vec4 ApplyTextureManipulation(vec4 texel, int blendflags)
  {
-	// Step 1: desaturate according to the material's desaturation factor. 
+	// Step 1: desaturate according to the material's desaturation factor.
 	texel = dodesaturate(texel, uTextureModulateColor.a);
 
 	// Step 2: Invert if requested
@@ -217,7 +297,7 @@ vec4 getTexel(vec2 st)
 			texel = vec4(1.0-texel.r, 1.0-texel.b, 1.0-texel.g, 1.0);
 			break;
 
-		case 7: //TM_FOGLAYER 
+		case 7: //TM_FOGLAYER
 			return texel;
 
 	}
@@ -232,7 +312,7 @@ vec4 getTexel(vec2 st)
 
 	// Apply the texture modification colors.
 	int blendflags = int(uTextureAddColor.a);	// this alpha is unused otherwise
-	if (blendflags != 0)	
+	if (blendflags != 0)
 	{
 		// only apply the texture manipulation if it contains something.
 		texel = ApplyTextureManipulation(texel, blendflags);
@@ -332,7 +412,7 @@ float R_DoomLightingEquation(float light)
 	{
 		z = distance(pixelpos.xyz, uCameraPos.xyz);
 	}
-	else 
+	else
 	{
 		z = pixelpos.w;
 	}
@@ -662,8 +742,8 @@ void SetMaterialProps(inout Material material, vec2 texCoord)
 		texCoord.s += uNpotEmulation.x * floor(mod(texCoord.t, uNpotEmulation.y));
 		texCoord.t = period + mod(texCoord.t, uNpotEmulation.y);
 	}
-#endif	
-	material.Base = getTexel(texCoord.st); 
+#endif
+	material.Base = getTexel(texCoord.st);
 	material.Normal = ApplyNormalMap(texCoord.st);
 
 // OpenGL doesn't care, but Vulkan pukes all over the place if these texture samplings are included in no-texture shaders, even though never called.
@@ -719,30 +799,12 @@ vec4 getLightColor(Material material, float fogdist, float fogfactor)
 		color.rgb = mix(vec3(0.0, 0.0, 0.0), color.rgb, fogfactor);
 	}
 
-	//
-	// handle glowing walls
-	//
-	if (uGlowTopColor.a > 0.0 && glowdist.x < uGlowTopColor.a)
-	{
-		color.rgb += desaturate(uGlowTopColor * (1.0 - glowdist.x / uGlowTopColor.a)).rgb;
-	}
-	if (uGlowBottomColor.a > 0.0 && glowdist.y < uGlowBottomColor.a)
-	{
-		color.rgb += desaturate(uGlowBottomColor * (1.0 - glowdist.y / uGlowBottomColor.a)).rgb;
-	}
-	color = min(color, 1.0);
-
 	// these cannot be safely applied by the legacy format where the implementation cannot guarantee that the values are set.
 #if !defined LEGACY_USER_SHADER && !defined NO_LAYERS
 	//
-	// apply glow 
+	// apply glow
 	//
 	color.rgb = mix(color.rgb, material.Glow.rgb, material.Glow.a);
-
-	//
-	// apply brightmaps 
-	//
-	color.rgb = min(color.rgb + material.Bright.rgb, 1.0);
 #endif
 
 	//
@@ -761,7 +823,36 @@ vec4 getLightColor(Material material, float fogdist, float fogfactor)
 	//
 	// apply dynamic lights
 	//
-	return vec4(ProcessMaterialLight(material, color.rgb), material.Base.a * vColor.a);
+	color.rgb = ProcessMaterialLight(material, color.rgb);
+
+	//
+	// handle glowing walls
+	//
+	if (uGlowTopColor.a > 0.0 && glowdist.x < uGlowTopColor.a)
+	{
+		color.rgb = SnapApplyGlow(
+			color.rgb,
+			desaturate(uGlowTopColor).rgb,
+			(1.0 - glowdist.x / uGlowTopColor.a)
+		);
+	}
+	if (uGlowBottomColor.a > 0.0 && glowdist.y < uGlowBottomColor.a)
+	{
+		color.rgb = SnapApplyGlow(
+			color.rgb,
+			desaturate(uGlowBottomColor).rgb,
+			(1.0 - glowdist.y / uGlowBottomColor.a)
+		);
+	}
+
+#if !defined LEGACY_USER_SHADER && !defined NO_LAYERS
+	//
+	// apply brightmaps
+	//
+	color.rgb = max(color.rgb, material.Base.rgb * material.Bright.rgb);
+#endif
+
+	return vec4(color.rgb, material.Base.a * vColor.a);
 }
 
 //===========================================================================
@@ -789,11 +880,11 @@ vec3 AmbientOcclusionColor()
 	//
 	// calculate fog factor
 	//
-	if (uFogEnabled == -1) 
+	if (uFogEnabled == -1)
 	{
 		fogdist = max(16.0, pixelpos.w);
 	}
-	else 
+	else
 	{
 		fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
 	}
@@ -854,11 +945,11 @@ void main()
 		//
 		if (uFogEnabled != 0)
 		{
-			if (uFogEnabled == 1 || uFogEnabled == -1) 
+			if (uFogEnabled == 1 || uFogEnabled == -1)
 			{
 				fogdist = max(16.0, pixelpos.w);
 			}
-			else 
+			else
 			{
 				fogdist = max(16.0, distance(pixelpos.xyz, uCameraPos.xyz));
 			}
@@ -879,7 +970,7 @@ void main()
 			//
 			// colored fog
 			//
-			if (uFogEnabled < 0) 
+			if (uFogEnabled < 0)
 			{
 				frag = applyFog(frag, fogfactor);
 			}
