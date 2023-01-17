@@ -90,21 +90,21 @@ jobs:
         cmake --build build --config ${{ matrix.config.build_type }} --parallel 3
 
     - name: Create Package
-      if: runner.os == 'Windows'  # Remove to make packages of all targets
+      if: matrix.config.build_type == 'Release'  # Remove to make packages of all targets
       shell: bash
       run: |
         cd build
         mkdir package
         if [[ "${{ runner.os }}" == 'Windows' ]]; then
-          cp ${{ matrix.config.build_type }}/gzdoom.exe ${{ matrix.config.build_type }}/*.pk3 package
+          cp ${{ matrix.config.build_type }}/snapgame.exe ${{ matrix.config.build_type }}/*.pk3 package
         elif [[ "${{ runner.os }}" == 'macOS' ]]; then
-          cp -r gzdoom.app package
+          cp -r snapgame.app package
         elif [[ "${{ runner.os }}" == 'Linux' ]]; then
-          cp gzdoom *.pk3 package
+          cp snapgame *.pk3 package
         fi
 
     - name: Upload Package
-      if: runner.os == 'Windows'  # Remove to store packages of all targets
+      if: matrix.config.build_type == 'Release'  # Remove to store packages of all targets
       uses: actions/upload-artifact@v4
       with:
         path: build/package
