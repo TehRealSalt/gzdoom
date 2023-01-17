@@ -96,7 +96,7 @@ const char *GetVersionString();
 // More stuff that needs to be different for derivatives.
 #define GAMENAME "Snap the Sentinel"
 #define WGAMENAME L"Snap the Sentinel"
-#define GAMENAMELOWERCASE "snap_the_sentinel"
+#define GAMENAMELOWERCASE "snapgame"
 #define QUERYIWADDEFAULT false
 #define FORUM_URL "https://snapgame.net/"
 #define BUGS_FORUM_URL "https://tehrealsalt.itch.io/snap-the-sentinel/"
