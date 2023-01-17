@@ -3,11 +3,11 @@ version: 1
 AppDir:
   path: ./AppDir
   app_info:
-    id: com.GZDoom.app
-    name: GZDoom
+    id: com.SnapGame.app
+    name: SnapGame
     icon: game_icon.png
     version: latest
-    exec: ./gzdoom
+    exec: ./snapgame
     exec_args: $@
   apt:
     arch: amd64
