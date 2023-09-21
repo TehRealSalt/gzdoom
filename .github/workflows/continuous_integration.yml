@@ -100,7 +100,6 @@ jobs:
         cmake --build build --config ${{ matrix.config.build_type }} --parallel 3
 
     - name: Create Package
-      if: runner.os == 'Windows'  # Remove to make packages of all targets
       shell: bash
       run: |
         cd build
