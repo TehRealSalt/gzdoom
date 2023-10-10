@@ -100,6 +100,7 @@ jobs:
         cmake --build build --config ${{ matrix.config.build_type }} --parallel 3
 
     - name: Create Package
+      if: matrix.build_type == 'Release'  # Remove to make packages of all targets
       shell: bash
       run: |
         cd build
@@ -109,7 +110,7 @@ jobs:
         elif [[ "${{ runner.os }}" == 'macOS' ]]; then
           cp -r snapgame.app package
         elif [[ "${{ runner.os }}" == 'Linux' ]]; then
-          cp snapgame *.pk3 package
+          cp snapgame *.pk3 *.so package
         fi
 
     - name: Upload Package
