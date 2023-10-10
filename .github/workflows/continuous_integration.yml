@@ -100,7 +100,6 @@ jobs:
         cmake --build build --config ${{ matrix.config.build_type }} --parallel 3
 
     - name: Create Package
-      if: matrix.build_type == 'Release'  # Remove to make packages of all targets
       shell: bash
       run: |
         cd build
@@ -114,7 +113,6 @@ jobs:
         fi
 
     - name: Upload Package
-      if: runner.os == 'Windows'  # Remove to store packages of all targets
       uses: actions/upload-artifact@v3
       with:
         path: build/package
