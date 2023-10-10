@@ -109,7 +109,7 @@ jobs:
         elif [[ "${{ runner.os }}" == 'macOS' ]]; then
           cp -r snapgame.app package
         elif [[ "${{ runner.os }}" == 'Linux' ]]; then
-          cp snapgame *.pk3 *.so package
+          cp snapgame *.pk3 package
         fi
 
     - name: Upload Package
