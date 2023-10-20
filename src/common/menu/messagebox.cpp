@@ -43,6 +43,7 @@
 FName MessageBoxClass = NAME_MessageBoxMenu;
 
 CVAR(Bool, m_quickexit, false, CVAR_ARCHIVE)
+CVAR(Bool, m_quickretry, false, CVAR_ARCHIVE)
 
 typedef void(*hfunc)();
 DEFINE_ACTION_FUNCTION(DMessageBoxMenu, CallHandler)
