@@ -64,6 +64,7 @@ EXTERN_CVAR(Bool, saveloadconfirmation) // [mxd]
 EXTERN_CVAR(Bool, quicksaverotation)
 EXTERN_CVAR(Bool, show_messages)
 EXTERN_CVAR(Float, hud_scalefactor)
+EXTERN_CVAR(Bool, m_quickretry)
 
 CVAR(Bool, m_simpleoptions, true, CVAR_ARCHIVE|CVAR_GLOBALCONFIG);
 CVAR(Bool, m_simpleoptions_view, true, 0);
@@ -252,6 +253,10 @@ bool M_SetSpecialMenu(FName& menu, int param)
 		// The separate menu class no longer exists but the name still needs support for existing mods.
 		void ActivateEndGameMenu();
 		ActivateEndGameMenu();
+		return false;
+
+	case NAME_RetryMenu:
+		C_DoCommand("menu_retry");
 		return false;
 
 	case NAME_PlayerMenu:
@@ -454,6 +459,40 @@ CCMD (menu_endgame)
 	S_Sound (CHAN_VOICE, CHANF_UI, "menu/activate", snd_menuvolume, ATTN_NONE);
 
 	ActivateEndGameMenu();
+}
+
+
+//=============================================================================
+//
+//
+//
+//=============================================================================
+
+CCMD (menu_retry)
+{
+	if (m_quickretry)
+	{
+		M_ClearMenus();
+		if (gamestate == GS_LEVEL && !netgame)
+		{
+			C_DoCommand("map *");
+		}
+		return;
+	}
+
+	M_StartControlPanel(true);
+
+	FString tempstring = GStrings.GetString("RESTART_MAP_PROMPT");
+	DMenu *newmenu = CreateMessageBoxMenu(CurrentMenu, tempstring.GetChars(), 0, false, NAME_None, []()
+	{
+		M_ClearMenus();
+		if (gamestate == GS_LEVEL && !netgame)
+		{
+			C_DoCommand("map *");
+		}
+	});
+
+	M_ActivateMenu(newmenu);
 }
 
 //=============================================================================
