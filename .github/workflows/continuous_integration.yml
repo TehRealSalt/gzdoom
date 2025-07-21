@@ -6,6 +6,8 @@ jobs:
   build:
     name: ${{ matrix.config.name }} | ${{ matrix.config.build_type }}
     runs-on: ${{ matrix.config.os }}
+    container: ${{ matrix.config.container }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -13,6 +15,7 @@ jobs:
         - name: Visual Studio 2022
           os: windows-2022
           build_type: Release
+          upload_artifact: true
 
         - name: Visual Studio 2022
           os: windows-2022
@@ -53,6 +56,14 @@ jobs:
           deps_cmdline: sudo apt update && sudo apt install clang-15 libsdl2-dev libvpx-dev libwebp-dev
           build_type: Release
 
+        - name: Steam Linux Runtime 3.0
+          os: ubuntu-latest
+          container: 'registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest'
+          extra_options: -DCMAKE_C_COMPILER=gcc-10 -DCMAKE_CXX_COMPILER=g++-10
+          build_type: Release
+          manual_zmusic: true  # Distributed ZMusic copies for SLR don't exist...
+          upload_artifact: true
+
     steps:
     - uses: actions/checkout@v4
 
@@ -63,18 +74,45 @@ jobs:
           eval ${{ matrix.config.deps_cmdline }}
         fi
         mkdir build
-        if [[ "${{ runner.os }}" == 'macOS' ]]; then
-          export ZMUSIC_PACKAGE=zmusic-2025-07-15-mac-universal.tar.xz
-        elif [[ "${{ runner.os }}" == 'Linux' ]]; then
-          export ZMUSIC_PACKAGE=zmusic-2025-07-15-linux.tar.xz
-        fi
-        if [[ -n "${ZMUSIC_PACKAGE}" ]]; then
-          cd build
-          wget -q "https://github.com/coelckers/gzdoom/releases/download/ci_deps/${ZMUSIC_PACKAGE}"
-          tar -xf "${ZMUSIC_PACKAGE}"
+        if [[ "${{ matrix.config.manual_zmusic }}" != true ]]; then
+            if [[ "${{ runner.os }}" == 'macOS' ]]; then
+              export ZMUSIC_PACKAGE=zmusic-2025-07-15-mac-universal.tar.xz
+            elif [[ "${{ runner.os }}" == 'Linux' ]]; then
+              export ZMUSIC_PACKAGE=zmusic-2025-07-15-linux.tar.xz
+            fi
+            if [[ -n "${ZMUSIC_PACKAGE}" ]]; then
+              cd build
+              wget -q "https://github.com/coelckers/gzdoom/releases/download/ci_deps/${ZMUSIC_PACKAGE}"
+              tar -xf "${ZMUSIC_PACKAGE}"
+            fi
         fi
 
+    - name: Checkout ZMusic
+      if: matrix.config.manual_zmusic == true
+      uses: actions/checkout@v4
+      with:
+        repository: 'ZDoom/ZMusic'
+        ref: 'ceb92b5fcea76b62f4f04c17f687d882c95b61b3' # Until 1.1.15 is released
+        path: 'build/zmusic'
+
+    - name: Configure ZMusic
+      if: matrix.config.manual_zmusic == true
+      shell: bash
+      run: |
+        cd build/zmusic
+        mkdir build
+        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }} ${{ matrix.config.extra_options }} .
+
+    - name: Build ZMusic
+      if: matrix.config.manual_zmusic == true
+      shell: bash
+      run: |
+        cd build/zmusic
+        export MAKEFLAGS=--keep-going
+        cmake --build build --config ${{ matrix.config.build_type }} --parallel 3
+
     - name: Git describe
+      if: matrix.config.name != 'Steam Linux Runtime 3.0' # TODO: investigate exactly why this fails
       id: ghd
       uses: proudust/gh-describe@v2
 
@@ -91,7 +129,7 @@ jobs:
         cmake --build build --config ${{ matrix.config.build_type }} --parallel 3
 
     - name: Create Package
-      if: matrix.config.build_type == 'Release'  # Remove to make packages of all targets
+      if: matrix.config.upload_artifact == true  # Remove to make packages of all targets
       shell: bash
       run: |
         cd build
@@ -101,11 +139,15 @@ jobs:
         elif [[ "${{ runner.os }}" == 'macOS' ]]; then
           cp -r snapgame.app package
         elif [[ "${{ runner.os }}" == 'Linux' ]]; then
-          cp snapgame *.pk3 package
+          if [[ "${{ matrix.config.manual_zmusic }}" == true ]]; then
+            cp snapgame *.pk3 zmusic/build/source/libzmusic.so.1 package
+          else
+            cp snapgame *.pk3 package
+          fi
         fi
 
     - name: Upload Package
-      if: matrix.config.build_type == 'Release'  # Remove to store packages of all targets
+      if: matrix.config.upload_artifact == true  # Remove to store packages of all targets
       uses: actions/upload-artifact@v4
       with:
         path: build/package
@@ -115,5 +157,8 @@ jobs:
       if: always()
       shell: bash
       run: |
+        if [[ "${{ matrix.config.container }}" ]]; then
+          git config --system --add safe.directory "$PWD"
+        fi
         git status
         ls -lR build
