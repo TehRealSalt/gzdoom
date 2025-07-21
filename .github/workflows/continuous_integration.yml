@@ -6,6 +6,8 @@ jobs:
   build:
     name: ${{ matrix.config.name }} | ${{ matrix.config.build_type }}
     runs-on: ${{ matrix.config.os }}
+    container: ${{ matrix.config.container }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -65,6 +67,12 @@ jobs:
           deps_cmdline: sudo apt-get update && sudo apt-get install libsdl2-dev libvpx-dev libwebp-dev
           build_type: Release
 
+        - name: Steam Linux Runtime 3.0
+          os: ubuntu-latest
+          container: 'registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest'
+          extra_options: -DCMAKE_C_COMPILER=gcc-10 -DCMAKE_CXX_COMPILER=g++-10
+          build_type: Release
+
     steps:
     - uses: actions/checkout@v4
 
@@ -79,6 +87,7 @@ jobs:
     - name: Git describe
       id: ghd
       uses: proudust/gh-describe@v2
+      continue-on-error: true  # Added a fallback below. It's *only* better than nothing. Maybe do workarounds to run git describe ourselves?
 
     - name: Configure
       shell: bash
@@ -88,7 +97,14 @@ jobs:
     - name: Build
       shell: bash
       run: |
-        export GIT_DESCRIBE="${{ steps.ghd.outputs.describe }}"
+        if [[ -n "${{ steps.ghd.outputs.describe }}" ]]; then
+          export GIT_DESCRIBE="${{ steps.ghd.outputs.describe }}"
+        elif [[ "${{ github.ref_type }}" == 'tag' ]]; then
+          export GIT_DESCRIBE="${{ github.ref_name }}"
+        else
+          export GIT_DESCRIBE="${{ github.ref_name }}-g${GITHUB_SHA::7}"
+        fi
+        echo $GIT_DESCRIBE
         export MAKEFLAGS=--keep-going
         cmake --build build --config ${{ matrix.config.build_type }} --parallel 3
 
@@ -118,5 +134,8 @@ jobs:
       if: always()
       shell: bash
       run: |
+        if [[ "${{ matrix.config.container }}" ]]; then
+          git config --system --add safe.directory "$PWD"
+        fi
         git status
         ls -lR build
