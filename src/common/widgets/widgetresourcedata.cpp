@@ -30,6 +30,23 @@ void InitWidgetResources(const char* filename)
 	if (!WidgetResources)
 		I_FatalError("Unable to open %s", filename);
 
+#if 1
+	// Snap the Sentinel theme
+	WidgetTheme::SetTheme(std::unique_ptr<WidgetTheme>(new WidgetTheme{{
+		Colorf::fromRgb(0x1b1b1b), // background
+		Colorf::fromRgb(0xbcbcbc), // text
+		Colorf::fromRgb(0x111111), // headers / inputs
+		Colorf::fromRgb(0xbcbcbc), // headers / inputs text
+		Colorf::fromRgb(0x313131), // interactive elements
+		Colorf::fromRgb(0xbcbcbc), // interactive elements text
+		Colorf::fromRgb(0xff1101), // hover / highlight
+		Colorf::fromRgb(0xffffff), // hover / highlight text
+		Colorf::fromRgb(0xbcbcbc), // click
+		Colorf::fromRgb(0xff1101), // click text
+		Colorf::fromRgb(0xa70b01), // around elements
+		Colorf::fromRgb(0x313131)  // between elements
+	}}));
+#else
 	bool use_dark = ui_theme != 2;
 
 	if (ui_theme == 0)
@@ -59,6 +76,7 @@ void InitWidgetResources(const char* filename)
 			Colorf::fromRgb(0xbdb8a7)  // between elements
 		}}));
 	}
+#endif
 }
 
 void CloseWidgetResources()
